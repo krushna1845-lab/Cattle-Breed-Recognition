@@ -1,0 +1,12 @@
+Accuracy: 0.25
+
+              precision    recall  f1-score   support
+
+      breed1       0.25      1.00      0.40         1
+      breed2       0.00      0.00      0.00         1
+      breed3       0.00      0.00      0.00         1
+      breed4       0.00      0.00      0.00         1
+
+    accuracy                           0.25         4
+   macro avg       0.06      0.25      0.10         4
+weighted avg       0.06      0.25      0.10         4

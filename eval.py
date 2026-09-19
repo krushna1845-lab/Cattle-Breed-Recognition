@@ -5,7 +5,9 @@ import pandas as pd
 import tensorflow as tf
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 
-DATA_DIR = "/kaggle/input/cattle-breed-recognition/dataset"
+import os
+DATA_DIR = os.path.join(os.getcwd(), "dataset")
+
 if not os.path.exists(DATA_DIR):
     raise FileNotFoundError(f"Dataset not found at {DATA_DIR}. Attach the Kaggle dataset before running eval.")
 
@@ -16,9 +18,7 @@ if not os.path.exists(MODEL_DIR):
 IMG_SIZE = (224, 224)
 BATCH_SIZE = 32
 
-model = tf.keras.models.load_model(MODEL_DIR)
-with open(os.path.join(MODEL_DIR, "classes.json"), "r") as f:
-    class_names = json.load(f)
+model = tf.keras.models.load_model("saved_model/breed_classifier/best_model_finetuned.keras")
 
 test_ds = tf.keras.preprocessing.image_dataset_from_directory(
     os.path.join(DATA_DIR, "test"),
@@ -27,6 +27,11 @@ test_ds = tf.keras.preprocessing.image_dataset_from_directory(
     shuffle=False,
     label_mode="int"
 )
+with open(os.path.join(MODEL_DIR, "classes.json"), "r") as f:
+    class_names = test_ds.class_names
+    print(f"Detected classes in test set: {class_names}")
+
+
 
 y_true = []
 y_pred = []

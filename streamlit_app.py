@@ -50,9 +50,10 @@ def load_class_names():
         return None
 
 def preprocess_image_pil(img: Image.Image):
+    # The model expects raw [0,255] pixels.
+    # Preprocessing (mobilenet_v2.preprocess_input) is already inside the model graph.
     img = img.convert("RGB").resize(IMG_SIZE)
     arr = np.array(img).astype("float32")
-    arr = tf.keras.applications.mobilenet_v2.preprocess_input(arr)
     arr = np.expand_dims(arr, 0)
     return arr
 

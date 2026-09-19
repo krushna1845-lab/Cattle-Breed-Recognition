@@ -1,0 +1,38 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+dist/
+
+# Uploaded/temporary files
+uploads/
+
+# Dataset
+dataset/
+dataset_resized/
+
+# Large archives
+*.zip
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+*_err.txt
+*_log.txt
+
+# Environment / secrets
+.env
+.env.*
+
+# Python cache
+.pytest_cache/

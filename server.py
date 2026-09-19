@@ -1,46 +1,99 @@
 from flask import Flask, request, jsonify
-import tensorflow as tf
-from PIL import Image
+from flask_cors import CORS
+import os
 import numpy as np
-import io
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing import image
+import tensorflow as tf
+import uuid
+import json
 
-MODEL_DIR = "saved_model/breed_classifier"
-IMG_SIZE = (224, 224)
-
-model = tf.keras.models.load_model(MODEL_DIR)
-class_names = None
-try:
-    import json, os
-    classes_file = os.path.join(MODEL_DIR, "classes.json")
-    if os.path.exists(classes_file):
-        with open(classes_file, "r") as f:
-            class_names = json.load(f)
-except Exception:
-    class_names = None
-
+# -----------------------------
+# Flask setup
+# -----------------------------
 app = Flask(__name__)
+CORS(app)
 
-def preprocess_image(image_bytes):
-    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    img = img.resize(IMG_SIZE)
-    arr = np.array(img).astype("float32")
-    arr = tf.keras.applications.mobilenet_v2.preprocess_input(arr)
-    arr = np.expand_dims(arr, axis=0)
-    return arr
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# -----------------------------
+# Load trained model
+# -----------------------------
+MODEL_PATH = "cattle_breed_model.keras"
+CLASSES_PATH = "saved_model/breed_classifier/classes.json"
+
+try:
+    model = tf.keras.models.load_model(MODEL_PATH)
+    print("✅ Model loaded successfully.")
+except Exception as e:
+    print("❌ Error loading model:", e)
+    model = None
+
+# Load class labels from the training metadata
+try:
+    with open(CLASSES_PATH, "r") as f:
+        CLASS_NAMES = json.load(f)
+except Exception as e:
+    print("❌ Error loading classes:", e)
+    CLASS_NAMES = []
+
+# -----------------------------
+# Prediction endpoint
+# -----------------------------
 @app.route("/predict", methods=["POST"])
 def predict():
+    if model is None:
+        return jsonify({"error": "Model not loaded"}), 500
+
     if "file" not in request.files:
-        return jsonify({"error":"no file part"}), 400
+        return jsonify({"error": "No file uploaded"}), 400
+
     file = request.files["file"]
-    img_bytes = file.read()
-    x = preprocess_image(img_bytes)
-    preds = model.predict(x)[0]
-    idx = int(preds.argmax())
-    conf = float(preds[idx])
-    label = class_names[idx] if class_names else str(idx)
-    return jsonify({"pred_idx": idx, "pred_label": label, "confidence": conf})
 
+    # Secure filename using UUID to avoid conflicts
+    filename = f"{uuid.uuid4().hex}_{file.filename}"
+    file_path = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(file_path)
+
+    try:
+        # Preprocess image: the model expects raw [0,255] pixels
+        # (preprocessing is handled inside the model via mobilenet_v2.preprocess_input)
+        img = image.load_img(file_path, target_size=(224, 224))
+        img_array = image.img_to_array(img)
+        img_array = np.expand_dims(img_array, axis=0)
+
+        # Predict
+        predictions = model.predict(img_array)
+        confidence = float(np.max(predictions)) * 100.0
+        class_index = int(np.argmax(predictions))
+        breed_name = CLASS_NAMES[class_index] if CLASS_NAMES else str(class_index)
+
+        # Build response (frontend reads "breed" and "confidence" as a percentage)
+        result = {
+            "breed": breed_name,
+            "breed_name": breed_name,
+            "confidence": round(confidence, 1),
+            "type": "cattle" if "buffalo" not in breed_name.lower() else "buffalo",
+            "characteristics": [
+                "High milk yield",
+                "Disease resistant",
+                "Adaptable to local climate"
+            ]
+        }
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({"error": f"Prediction error: {str(e)}"}), 500
+
+    finally:
+        # Clean up uploaded file after prediction
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+# -----------------------------
+# Run Flask backend
+# -----------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
-
+    app.run(host="127.0.0.1", port=5000, debug=True)
